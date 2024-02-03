@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <title>OSM Time Capsule Map Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    #map-container {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      /* 100% of the viewport height */
+    }
+
+    #map,
+    #video-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #video-container {
+      display: none;
+    }
+
+    /* Floating Button Style */
+    .floating-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 25px;
+      /* Increase the border-radius for rounded edges */
+      cursor: pointer;
+      z-index: 1000;
+      /* Ensure the button is above the map */
+      font-size: 16px;
+      /* Adjust font size for better visibility */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+
+<body class="relative h-screen overflow-hidden bg-gray-200">
+  <div id="map-container">
+    <div id="map"></div>
+    <div id="video-container"></div>
+  </div>
+  <button class="floating-btn" id="recordBtn">Start Recording</button>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+
+  <script>
+    let map = L.map('map').setView([51.505, -0.09], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let recording = false;
+    const recordBtn = document.getElementById('recordBtn');
+    recordBtn.onclick = toggleRecording;
+
+    function toggleRecording() {
+      if (!recording) {
+        startRecording();
+        recordBtn.textContent = 'Stop Recording';
+        recording = true;
+      } else {
+        stopRecording();
+        recordBtn.textContent = 'Start Recording';
+        recording = false;
+      }
+    }
+
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
+          audioChunks = [];
+          mediaRecorder.addEventListener('dataavailable', event => {
+            audioChunks.push(event.data);
+          });
+          mediaRecorder.addEventListener('stop', () => {
+            const audioBlob = new Blob(audioChunks);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            saveRecordingWithLocation(audioUrl);
+          });
+        })
+        .catch(error => console.error("Cannot access audio", error));
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+    }
+
+    function saveRecordingWithLocation(audioUrl) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        addAudioMarker(latitude, longitude, audioUrl);
+        // For a real application, you'd likely want to save these details to a server or local storage
+      });
+    }
+
+    function addAudioMarker(latitude, longitude, audioUrl) {
+      const marker = L.marker([latitude, longitude]).addTo(map);
+      marker.on('click', () => {
+        const audio = new Audio(audioUrl);
+        audio.play();
+      });
+    }
+
+    var userMarker; // Do not initialize it yet
+
+//var map = L.map('map').setView([51.505, -0.09], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var userMarker = L.marker([0, 0], {opacity: 10}); // Initialize off the map
+    map.addLayer(userMarker); // Add to map to manage visibility later
+
+    // Function to update location, simplified for this example
+    function getCurrentLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var newUserLocation = L.latLng(position.coords.latitude, position.coords.longitude);
+                
+                if (userMarker) {
+                    // Marker exists, update its position
+                    userMarker.setLatLng(newUserLocation);
+                } else {
+                    // Marker doesn't exist, create it and add to the map
+                    userMarker = L.marker(newUserLocation).addTo(map);
+                }
+                
+                map.setView(newUserLocation, 13); // Center the map on the new location
+                userMarker.bindPopup("You are here").openPopup();
+    
+            }, function(error) {
+                alert("Error obtaining location. Please ensure location services are enabled and try again.");
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+// Call locateUser function to execute when the script loads
+locateUser();
+
+  </script>
+
+
+  <!-- Update Location Button -->
+  <div class="floating-btn" style="bottom: 70px;">
+    <button id="updateLocation" onclick="getCurrentLocation()"
+      style="background: none; border: none; color: inherit; padding: 0; font: inherit; cursor: pointer;">
+      Update My Location
+    </button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+
+  <video id="video" style="display:none;" width="640" height="480" autoplay></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    var video = document.getElementById('video');
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext('2d');
+    var mediaStream = null;
+
+
+
+
+
+
+    // Your existing Leaflet map initialization code
+   // var map = L.map('map').setView([51.505, -0.09], 13);
+
+    L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.{ext}', {
+      attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
+      subdomains: 'abcd',
+      minZoom: 0,
+      maxZoom: 20,
+      ext: 'png'
+    }).addTo(map);
+
+    // Your existing watchPosition code here...
+        // Hardcoded pins with audio (replace with your own coordinates and audio URLs)
+    addAudioMarker(40.455241356606415, -79.9551266174218, 'audio1.mp3');
+    addAudioMarker(40.453932182350435, -79.94854090275143, 'audio2.mp3');
+    addAudioMarker(40.44250005195028, -79.95574569465006, 'audio3.mp3');
+    addAudioMarker(40.44430631818709, -79.95271075904695, 'audio4.mp3');
+  </script>
+</body>
+
+</html>
